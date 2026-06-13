@@ -13,6 +13,32 @@ return new class extends Migration
     {
         Schema::create('documents', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->foreignId('document_type_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->string('title');
+
+            $table->text('description')->nullable();
+
+            $table->string('file');
+
+            $table->enum('status', [
+                'pending',
+                'revision',
+                'waiting_admin',
+                'approved',
+                'rejected',
+            ])->default('pending');
+
+            $table->index('status');
+            $table->index('submitted_at');
+
+            $table->timestamp('submitted_at')->nullable();
             $table->timestamps();
         });
     }

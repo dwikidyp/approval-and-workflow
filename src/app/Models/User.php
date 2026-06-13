@@ -71,4 +71,14 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
             'Mahasiswa',
         ]);
     }
+
+    public function documents()
+    {
+        return $this->hasMany(Document::class);
+    }
+
+    public function approvals()
+    {
+        return $this->hasMany(Approval::class, 'approved_by');
+    }
 }
