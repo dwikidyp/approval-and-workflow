@@ -148,6 +148,11 @@ class UserResource extends Resource
         ];
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->hasRole('Admin Akademik') ?? false;
+    }
+
     public static function getPages(): array
     {
         return [
