@@ -32,7 +32,7 @@ class ApprovalsRelationManager extends RelationManager
                     ->rows(4),
 
                 Forms\Components\Hidden::make('approved_by')
-                    ->default(auth()->id()),
+                    ->default(fn () => auth()->id()),
             ]);
     }
 
@@ -62,18 +62,48 @@ class ApprovalsRelationManager extends RelationManager
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
-                    ->visible(
-                        fn () => auth()->user()?->hasAnyRole([
-                            'Dosen',
-                            'Admin Akademik',
-                        ])
-                    )
+                    ->label('Review Document')
+
+                    ->visible(function () {
+
+                        $document = $this->getOwnerRecord();
+
+                        $user = auth()->user();
+
+                        if (! $user) {
+                            return false;
+                        }
+
+                        // Dosen hanya review pending/revision
+                        if ($user->hasRole('Dosen')) {
+
+                            return in_array(
+                                $document->status,
+                                [
+                                    'pending',
+                                    'revision',
+                                ]
+                            );
+                        }
+
+                        // Admin hanya review waiting_admin
+                        if ($user->hasRole('Admin Akademik')) {
+
+                            return $document->status === 'waiting_admin';
+                        }
+
+                        return false;
+                    })
+
                     ->mutateFormDataUsing(function (array $data): array {
+
                         $data['approved_by'] = auth()->id();
-                        $data['approved_at'] = now();
+
+                        $data['approved_at'] = $data['approved_at'] ?? now();
 
                         return $data;
                     })
+
                     ->after(function ($record) {
 
                         $document = $record->document;
@@ -127,23 +157,33 @@ class ApprovalsRelationManager extends RelationManager
                                         'status' => 'waiting_admin',
                                     ]);
 
-                                    $admins = User::role('Admin Akademik')->get();
+                                    $admins = User::role(
+                                        'Admin Akademik'
+                                    )->get();
 
                                     foreach ($admins as $admin) {
 
                                         Notification::make()
-                                            ->title('Menunggu Final Approval')
+                                            ->title(
+                                                'Menunggu Final Approval'
+                                            )
                                             ->body(
                                                 'Dokumen "' .
                                                 $document->title .
                                                 '" telah disetujui dosen'
                                             )
-                                            ->sendToDatabase($admin);
+                                            ->sendToDatabase(
+                                                $admin
+                                            );
                                     }
                                 }
 
-                                // Approval oleh Admin
-                                if (auth()->user()->hasRole('Admin Akademik')) {
+                                // Approval oleh Admin Akademik
+                                if (
+                                    auth()->user()->hasRole(
+                                        'Admin Akademik'
+                                    )
+                                ) {
 
                                     $document->update([
                                         'status' => 'approved',
@@ -167,6 +207,7 @@ class ApprovalsRelationManager extends RelationManager
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
-            ]);
+            ])
+            ->bulkActions([]);
     }
 }

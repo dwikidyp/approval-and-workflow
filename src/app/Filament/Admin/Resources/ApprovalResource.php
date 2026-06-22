@@ -21,15 +21,17 @@ class ApprovalResource extends Resource
 
     protected static ?string $navigationLabel = 'Approvals';
 
+    protected static ?int $navigationSort = 3;
+
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
                 Forms\Components\Select::make('document_id')
-                ->relationship('document', 'title')
-                ->required()
-                ->searchable()
-                ->preload(),
+                    ->relationship('document', 'title')
+                    ->required()
+                    ->searchable()
+                    ->preload(),
 
                 Forms\Components\Select::make('status')
                     ->options([
@@ -51,16 +53,21 @@ class ApprovalResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('document.title')
-                ->label('Document')
-                ->searchable(),
+                    ->label('Document')
+                    ->searchable()
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('approver.name')
-                    ->label('Reviewer'),
+                    ->label('Reviewer')
+                    ->searchable()
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
+                    ->sortable()
                     ->color(fn (string $state): string => match ($state) {
                         'approved' => 'success',
                         'revision' => 'warning',
@@ -68,11 +75,20 @@ class ApprovalResource extends Resource
                         default => 'gray',
                     }),
 
+                Tables\Columns\TextColumn::make('notes')
+                    ->limit(40)
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('approved_at')
-                    ->dateTime('d M Y H:i'),
+                    ->label('Approved At')
+                    ->dateTime('d M Y H:i')
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime('d M Y H:i'),
+                    ->label('Created At')
+                    ->dateTime('d M Y H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
@@ -84,13 +100,8 @@ class ApprovalResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ]);
+            ->bulkActions([]);
     }
 
     public static function getEloquentQuery(): Builder
@@ -100,22 +111,12 @@ class ApprovalResource extends Resource
         /** @var \App\Models\User|null $user */
         $user = auth()->user();
 
-        // Mahasiswa hanya melihat approval dokumennya
         if ($user?->hasRole('Mahasiswa')) {
             return $query->whereHas('document', function ($q) use ($user) {
                 $q->where('user_id', $user->id);
             });
         }
 
-        // Admin hanya melihat dokumen yang menunggu final approval
-        if ($user?->hasRole('Admin Akademik')) {
-            return $query->whereHas(
-                'document',
-                fn ($q) => $q->where('status', 'waiting_admin')
-            );
-        }
-
-        // Dosen melihat semua approval
         return $query;
     }
 
@@ -137,10 +138,7 @@ class ApprovalResource extends Resource
 
     public static function canEdit($record): bool
     {
-        return auth()->user()?->hasAnyRole([
-            'Dosen',
-            'Admin Akademik',
-        ]) ?? false;
+        return false;
     }
 
     public static function canDelete($record): bool
@@ -150,9 +148,7 @@ class ApprovalResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 
     public static function getPages(): array
@@ -163,7 +159,4 @@ class ApprovalResource extends Resource
             'edit' => Pages\EditApproval::route('/{record}/edit'),
         ];
     }
-
-    
 }
-

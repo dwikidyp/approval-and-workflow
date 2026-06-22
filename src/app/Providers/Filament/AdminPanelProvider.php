@@ -52,6 +52,7 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 \App\Filament\Admin\Widgets\DocumentStats::class,
                 \App\Filament\Admin\Widgets\DocumentStatusChart::class,
+                \App\Filament\Admin\Widgets\RecentActivities::class,
                 \Awcodes\Overlook\Widgets\OverlookWidget::class,
             ])
             ->navigationGroups([
