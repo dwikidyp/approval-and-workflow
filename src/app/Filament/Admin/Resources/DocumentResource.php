@@ -11,6 +11,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\User;
+use App\Filament\Admin\Resources\DocumentResource\RelationManagers\ApprovalsRelationManager;
 
 class DocumentResource extends Resource
 {
@@ -41,10 +42,28 @@ class DocumentResource extends Resource
                 ->columnSpanFull(),
 
             Forms\Components\FileUpload::make('file')
+                ->acceptedFileTypes([
+                    'application/pdf',
+                ])
+                ->maxSize(10240)
+                ->disk('public')
                 ->directory('documents')
-                ->required()
-                ->downloadable()
-                ->openable(),
+                ->required(),
+
+            Forms\Components\Placeholder::make('preview')
+                ->content(
+                    fn ($record) =>
+                        $record
+                            ? new \Illuminate\Support\HtmlString(
+                                '<iframe
+                                    src="' . asset('storage/' . $record->file) . '"
+                                    width="100%"
+                                    height="700">
+                                </iframe>'
+                            )
+                            : ''
+                )
+                ->columnSpanFull(),
 
             Forms\Components\Hidden::make('user_id')
                 ->default(auth()->id()),
@@ -69,6 +88,15 @@ class DocumentResource extends Resource
                 Tables\Columns\TextColumn::make('title')
                     ->searchable()
                     ->limit(30),
+
+                Tables\Columns\TextColumn::make('file')
+                    ->label('File')
+                    ->formatStateUsing(fn ($state) => 'View File')
+                    ->url(
+                        fn ($record) => asset('storage/' . $record->file),
+                        true
+                    )
+                    ->openUrlInNewTab(),
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
@@ -101,6 +129,13 @@ class DocumentResource extends Resource
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make()
                     ->visible(fn () => auth()->user()?->hasRole('Mahasiswa')),
+                Tables\Actions\Action::make('download')
+                    ->label('Download')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->url(
+                        fn ($record) => asset('storage/' . $record->file)                    
+                    )
+                    ->openUrlInNewTab(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -167,7 +202,7 @@ class DocumentResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            ApprovalsRelationManager::class,
         ];
     }
 
