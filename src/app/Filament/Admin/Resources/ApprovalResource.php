@@ -123,6 +123,7 @@ class ApprovalResource extends Resource
     public static function shouldRegisterNavigation(): bool
     {
         return auth()->user()?->hasAnyRole([
+            'super_admin',
             'Dosen',
             'Admin Akademik',
         ]) ?? false;

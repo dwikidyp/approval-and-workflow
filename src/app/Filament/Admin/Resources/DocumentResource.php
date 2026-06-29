@@ -222,6 +222,11 @@ class DocumentResource extends Resource
         ];
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return true;
+    }
+
     public static function getPages(): array
     {
         return [
@@ -230,4 +235,6 @@ class DocumentResource extends Resource
             'edit' => Pages\EditDocument::route('/{record}/edit'),
         ];
     }
+
+    
 }

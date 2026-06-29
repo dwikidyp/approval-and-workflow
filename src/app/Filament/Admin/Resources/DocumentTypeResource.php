@@ -9,8 +9,6 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
 
 class DocumentTypeResource extends Resource
 {
@@ -26,62 +24,72 @@ class DocumentTypeResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Document Types';
 
+    protected static ?int $navigationSort = 3;
+
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
+
                 Forms\Components\TextInput::make('name')
                     ->required()
+                    ->unique(
+                        ignoreRecord: true
+                    )
                     ->maxLength(255),
 
                 Forms\Components\Textarea::make('description')
                     ->rows(4)
                     ->columnSpanFull(),
+
             ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('name')
             ->columns([
+
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('description')
-                    ->limit(50),
+                    ->limit(50)
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('documents_count')
                     ->counts('documents')
-                    ->label('Documents'),
+                    ->label('Documents')
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime('d M Y H:i')
                     ->sortable(),
+
             ])
             ->filters([
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+
+                Tables\Actions\ViewAction::make(),
+
+                Tables\Actions\EditAction::make()
+                    ->visible(fn () => static::isAdmin()),
+
             ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+
+                Tables\Actions\BulkActionGroup::make([
+
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->visible(fn () => static::isAdmin()),
+
+                ]),
+
             ]);
-    }
-
-    public static function getRelations(): array
-    {
-        return [];
-    }
-
-    public static function getPages(): array
-    {
-        return [
-            'index' => Pages\ListDocumentTypes::route('/'),
-            'create' => Pages\CreateDocumentType::route('/create'),
-            'edit' => Pages\EditDocumentType::route('/{record}/edit'),
-        ];
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -111,6 +119,23 @@ class DocumentTypeResource extends Resource
 
     protected static function isAdmin(): bool
     {
-        return auth()->user()?->hasRole('Admin Akademik') ?? false;
+        return auth()->user()?->hasAnyRole([
+            'super_admin',
+            'Admin Akademik',
+        ]) ?? false;
+    }
+
+    public static function getRelations(): array
+    {
+        return [];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListDocumentTypes::route('/'),
+            'create' => Pages\CreateDocumentType::route('/create'),
+            'edit' => Pages\EditDocumentType::route('/{record}/edit'),
+        ];
     }
 }
