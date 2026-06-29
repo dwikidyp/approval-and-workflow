@@ -2,29 +2,41 @@
 
 namespace App\Filament\Admin\Widgets;
 
-use Spatie\Activitylog\Models\Activity;
-use Filament\Widgets\TableWidget;
-use Filament\Tables\Table;
 use Filament\Tables;
+use Filament\Tables\Table;
+use Filament\Widgets\TableWidget;
+use Spatie\Activitylog\Models\Activity;
 
 class RecentActivities extends TableWidget
 {
-    protected static ?int $sort = 5;
+    protected static ?string $heading = 'Recent Activities';
+
+    protected static ?int $sort = 10;
+
+    protected int|string|array $columnSpan = 'full';
 
     public function table(Table $table): Table
     {
         return $table
             ->query(
-                Activity::query()->latest()
+                Activity::query()
+                    ->latest()
+                    ->limit(20)
             )
             ->columns([
                 Tables\Columns\TextColumn::make('causer.name')
-                    ->label('User'),
+                    ->label('User')
+                    ->searchable(),
 
-                Tables\Columns\TextColumn::make('description'),
+                Tables\Columns\TextColumn::make('description')
+                    ->wrap(),
+
+                Tables\Columns\TextColumn::make('event')
+                    ->badge(),
 
                 Tables\Columns\TextColumn::make('created_at')
-                    ->since(),
+                    ->since()
+                    ->label('Time'),
             ]);
     }
 }
