@@ -83,6 +83,7 @@ class AdminPanelProvider extends PanelProvider
                         'default' => 2,
                         'lg' => 3,
                     ]),
+                
                 \Hasnayeen\Themes\ThemesPlugin::make(),
                 \Njxqlus\FilamentProgressbar\FilamentProgressbarPlugin::make()->color('#29b'),
                 \DiogoGPinto\AuthUIEnhancer\AuthUIEnhancerPlugin::make()

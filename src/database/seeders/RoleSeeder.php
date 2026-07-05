@@ -4,29 +4,120 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 class RoleSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        Role::firstOrCreate(['name' => 'super_admin']);
-        Role::firstOrCreate(['name' => 'user']);
-        Role::firstOrCreate([
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+
+        $permissions = [
+
+            // Documents
+            'view_any_document',
+            'view_document',
+            'create_document',
+            'update_document',
+            'delete_document',
+
+            // Document Types
+            'view_any_document_type',
+            'view_document_type',
+            'create_document_type',
+            'update_document_type',
+            'delete_document_type',
+
+            // Approvals
+            'view_any_approval',
+            'view_approval',
+            'create_approval',
+            'update_approval',
+            'delete_approval',
+
+            // Activity Log
+            'view_activity_log',
+
+            // User Management
+            'view_any_user',
+            'view_user',
+            'create_user',
+            'update_user',
+            'delete_user',
+
+            // Role Management
+            'view_any_role',
+            'view_role',
+            'create_role',
+            'update_role',
+            'delete_role',
+        ];
+
+        foreach ($permissions as $permission) {
+            Permission::firstOrCreate([
+                'name' => $permission,
+            ]);
+        }
+
+        // Roles
+        $superAdmin = Role::firstOrCreate([
+            'name' => 'super_admin',
+        ]);
+
+        $adminAkademik = Role::firstOrCreate([
             'name' => 'Admin Akademik',
-            'guard_name' => 'web',
         ]);
 
-        Role::firstOrCreate([
+        $dosen = Role::firstOrCreate([
             'name' => 'Dosen',
-            'guard_name' => 'web',
         ]);
 
-        Role::firstOrCreate([
+        $mahasiswa = Role::firstOrCreate([
             'name' => 'Mahasiswa',
-            'guard_name' => 'web',
+        ]);
+
+        // super admin
+        $superAdmin->syncPermissions(
+            Permission::all()
+        );
+
+        // admin akademik
+        $adminAkademik->syncPermissions([
+            'view_any_document',
+            'view_document',
+
+            'view_any_document_type',
+            'view_document_type',
+            'create_document_type',
+            'update_document_type',
+            'delete_document_type',
+
+            'view_any_approval',
+            'view_approval',
+            'create_approval',
+            'update_approval',
+
+            'view_activity_log',
+        ]);
+
+        // dosen
+        $dosen->syncPermissions([
+            'view_any_document',
+            'view_document',
+
+            'view_any_approval',
+            'view_approval',
+            'create_approval',
+            'update_approval',
+        ]);
+
+        // mahasiswa
+        $mahasiswa->syncPermissions([
+            'view_any_document',
+            'view_document',
+            'create_document',
+            'update_document',
         ]);
     }
 }
