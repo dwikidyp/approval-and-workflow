@@ -111,8 +111,8 @@ class DocumentResource extends Resource
                     ->sortable()
                     ->color(fn (string $state): string => match ($state) {
                         'pending' => 'warning',
-                        'revision' => 'info',
-                        'waiting_admin' => 'primary',
+                        'revision' => 'warning',
+                        'waiting_admin' => 'info',
                         'approved' => 'success',
                         'rejected' => 'danger',
                         default => 'gray',
