@@ -21,3 +21,18 @@ Livewire::setScriptRoute(function ($handle) {
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/test-notif', function () {
+
+    $user = \App\Models\User::find(4);
+
+    \Filament\Notifications\Notification::make()
+        ->title('Tes Filament')
+        ->body('Notif dari route')
+        ->success()
+        ->sendToDatabase(
+            collect([$user])
+        );
+
+    return 'ok';
+});

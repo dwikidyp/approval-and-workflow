@@ -30,9 +30,10 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->spa()
+            //->spa()
             ->login()
             ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->passwordReset()
             ->profile(\App\Filament\Pages\Auth\EditProfile::class, isSimple: false)
             ->defaultThemeMode(ThemeMode::Light)
@@ -53,7 +54,7 @@ class AdminPanelProvider extends PanelProvider
                 \App\Filament\Admin\Widgets\DocumentStats::class,
                 \App\Filament\Admin\Widgets\DocumentStatusChart::class,
                 \App\Filament\Admin\Widgets\RecentActivities::class,
-                \Awcodes\Overlook\Widgets\OverlookWidget::class,
+                // \Awcodes\Overlook\Widgets\OverlookWidget::class,
             ])
             ->navigationGroups([
                 NavigationGroup::make()
@@ -84,7 +85,7 @@ class AdminPanelProvider extends PanelProvider
                         'lg' => 3,
                     ]),
                 
-                \Hasnayeen\Themes\ThemesPlugin::make(),
+                // \Hasnayeen\Themes\ThemesPlugin::make(),
                 \Njxqlus\FilamentProgressbar\FilamentProgressbarPlugin::make()->color('#29b'),
                 \DiogoGPinto\AuthUIEnhancer\AuthUIEnhancerPlugin::make()
                     ->showEmptyPanelOnMobile(false)
@@ -98,10 +99,10 @@ class AdminPanelProvider extends PanelProvider
                         'auth.login',
                         'auth.password',
                     ]),
-                \Awcodes\Overlook\OverlookPlugin::make()
-                    ->includes([
-                        \App\Filament\Admin\Resources\UserResource::class,
-                    ]),
+                // \Awcodes\Overlook\OverlookPlugin::make()
+                //     ->includes([
+                //         \App\Filament\Admin\Resources\UserResource::class,
+                //     ]),
                 \Joaopaulolndev\FilamentEditProfile\FilamentEditProfilePlugin::make()
                     ->slug('my-profile')
                     ->setTitle('My Profile')

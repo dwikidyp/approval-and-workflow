@@ -4,13 +4,14 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\ApprovalResource\Pages;
 use App\Models\Approval;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use App\Notifications\DocumentWorkflowNotification;
 
 class ApprovalResource extends Resource
 {
@@ -39,6 +40,7 @@ class ApprovalResource extends Resource
     {
         return $table
             ->defaultSort('created_at', 'desc')
+
             ->columns([
 
                 Tables\Columns\TextColumn::make('document.title')
@@ -58,7 +60,7 @@ class ApprovalResource extends Resource
                 Tables\Columns\TextColumn::make('document.status')
                     ->label('Document Status')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'pending' => 'gray',
                         'waiting_admin' => 'warning',
                         'approved' => 'success',
@@ -81,16 +83,30 @@ class ApprovalResource extends Resource
                     ->dateTime('d M Y H:i')
                     ->sortable(),
             ])
+
             ->filters([
-                Tables\Filters\SelectFilter::make('status')
+
+                Tables\Filters\SelectFilter::make('document_status')
+                    ->label('Document Status')
                     ->options([
                         'pending' => 'Pending',
                         'waiting_admin' => 'Waiting Admin',
                         'approved' => 'Approved',
                         'revision' => 'Revision',
                         'rejected' => 'Rejected',
-                    ]),
+                    ])
+                    ->query(function (Builder $query, array $data) {
+
+                        if (! filled($data['value'])) {
+                            return;
+                        }
+
+                        $query->whereHas('document', function ($q) use ($data) {
+                            $q->where('status', $data['value']);
+                        });
+                    }),
             ])
+
             ->actions([
 
                 Tables\Actions\ViewAction::make(),
@@ -100,11 +116,17 @@ class ApprovalResource extends Resource
                     ->icon('heroicon-o-check')
                     ->color('success')
                     ->visible(function ($record) {
+
                         return auth()->user()?->hasRole('Dosen')
-                            && $record->status === 'pending';
+                            && $record->status === 'pending'
+                            && $record->document?->status === 'pending';
                     })
                     ->requiresConfirmation()
                     ->action(function ($record) {
+
+                        if ($record->status !== 'pending') {
+                            return;
+                        }
 
                         $record->update([
                             'status' => 'approved',
@@ -116,12 +138,69 @@ class ApprovalResource extends Resource
                             'status' => 'waiting_admin',
                         ]);
 
-                        Notification::make()
-                            ->title('Dokumen Lolos Review Dosen')
-                            ->success()
-                            ->sendToDatabase(
-                                $record->document->user
+                        $admins = User::role('Admin Akademik')->get();
+
+                        foreach ($admins as $admin) {
+                            $admin->notify(
+                                new DocumentWorkflowNotification(
+                                    'Dokumen Menunggu Persetujuan',
+                                    'Dokumen "' .
+                                    $record->document->title .
+                                    '" telah disetujui dosen dan menunggu persetujuan Anda.'
+                                )
                             );
+                        }
+
+                        $record->document->user->notify(
+                            new DocumentWorkflowNotification(
+                                'Dokumen Lolos Review Dosen',
+                                'Dokumen telah disetujui dosen dan menunggu persetujuan Admin Akademik.'
+                            )
+                        );
+                    }),
+
+                Tables\Actions\Action::make('finalApprove')
+                    ->label('Final Approve')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->visible(function ($record) {
+
+                        return auth()->user()?->hasRole('Admin Akademik')
+                            && $record->document?->status === 'waiting_admin';
+                    })
+                    ->requiresConfirmation()
+                    ->action(function ($record) {
+
+                        $record->update([
+                            'status' => 'approved',
+                            'approved_by' => auth()->id(),
+                            'approved_at' => now(),
+                        ]);
+
+                        $record->document->update([
+                            'status' => 'approved',
+                        ]);
+
+                        $record->document->user->notify(
+                            new DocumentWorkflowNotification(
+                                'Dokumen Disetujui',
+                                'Dokumen "' .
+                                $record->document->title .
+                                '" telah disetujui.'
+                            )
+                        );
+
+                        if ($record->approver) {
+
+                            $record->approver->notify(
+                                new DocumentWorkflowNotification(
+                                    'Dokumen Selesai Diproses',
+                                    'Dokumen "' .
+                                    $record->document->title .
+                                    '" telah disetujui Admin Akademik.'
+                                )
+                            );
+                        }
                     }),
 
                 Tables\Actions\Action::make('revision')
@@ -129,11 +208,13 @@ class ApprovalResource extends Resource
                     ->icon('heroicon-o-pencil-square')
                     ->color('warning')
                     ->visible(function ($record) {
+
                         return auth()->user()?->hasRole('Dosen')
                             && $record->status === 'pending';
                     })
                     ->form([
                         Forms\Components\Textarea::make('notes')
+                            ->label('Catatan Revisi')
                             ->required(),
                     ])
                     ->action(function (array $data, $record) {
@@ -149,35 +230,19 @@ class ApprovalResource extends Resource
                             'status' => 'revision',
                         ]);
 
-                        Notification::make()
-                            ->title('Dokumen Perlu Revisi')
-                            ->warning()
-                            ->sendToDatabase(
-                                $record->document->user
-                            );
-                    }),
+                        $record->document->user->notify(
+                            new DocumentWorkflowNotification(
+                                'Dokumen Perlu Revisi',
+                                'Dokumen "' .
+                                $record->document->title .
+                                '" memerlukan revisi. Catatan: ' .
+                                $data['notes']
+                            )
+                        );
 
-                Tables\Actions\Action::make('final_approve')
-                    ->label('Final Approve')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(function ($record) {
-                        return auth()->user()?->hasRole('Admin Akademik')
-                            && $record->document?->status === 'waiting_admin';
-                    })
-                    ->requiresConfirmation()
-                    ->action(function ($record) {
-
-                        $record->document->update([
-                            'status' => 'approved',
+                        logger()->info('Notification sent', [
+                            'user' => $record->document->user->id,
                         ]);
-
-                        Notification::make()
-                            ->title('Dokumen Disetujui')
-                            ->success()
-                            ->sendToDatabase(
-                                $record->document->user
-                            );
                     }),
 
                 Tables\Actions\Action::make('reject')
@@ -185,11 +250,13 @@ class ApprovalResource extends Resource
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->visible(function ($record) {
+
                         return auth()->user()?->hasRole('Admin Akademik')
                             && $record->document?->status === 'waiting_admin';
                     })
                     ->form([
                         Forms\Components\Textarea::make('notes')
+                            ->label('Alasan Penolakan')
                             ->required(),
                     ])
                     ->action(function (array $data, $record) {
@@ -205,14 +272,18 @@ class ApprovalResource extends Resource
                             'status' => 'rejected',
                         ]);
 
-                        Notification::make()
-                            ->title('Dokumen Ditolak')
-                            ->danger()
-                            ->sendToDatabase(
-                                $record->document->user
-                            );
+                        $record->document->user->notify(
+                            new DocumentWorkflowNotification(
+                                'Dokumen Ditolak',
+                                'Dokumen "' .
+                                $record->document->title .
+                                '" ditolak. Alasan: ' .
+                                $data['notes']
+                            )
+                        );
                     }),
             ])
+
             ->bulkActions([]);
     }
 
@@ -226,21 +297,34 @@ class ApprovalResource extends Resource
             return $query;
         }
 
+        if ($user->hasRole('super_admin')) {
+            return $query;
+        }
+
         if ($user->hasRole('Mahasiswa')) {
+
             return $query->whereHas('document', function ($q) use ($user) {
+
                 $q->where('user_id', $user->id);
+
             });
         }
 
         if ($user->hasRole('Dosen')) {
+
             return $query->whereHas('document', function ($q) {
+
                 $q->where('status', 'pending');
+
             });
         }
 
         if ($user->hasRole('Admin Akademik')) {
+
             return $query->whereHas('document', function ($q) {
+
                 $q->where('status', 'waiting_admin');
+
             });
         }
 
@@ -253,7 +337,6 @@ class ApprovalResource extends Resource
             'super_admin',
             'Dosen',
             'Admin Akademik',
-            'Mahasiswa',
         ]) ?? false;
     }
 
